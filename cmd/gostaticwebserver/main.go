@@ -28,6 +28,6 @@ func main() {
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), http.FileServer(http.Dir(cfg.WebDir)))
 	if err != nil {
-		log.Fatalf("unable to server: %v\n", err)
+		log.Fatalf("unable to serve: %v\n", err)
 	}
 }
