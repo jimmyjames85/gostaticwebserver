@@ -1,2 +1,2 @@
-source defaultenv
-go run cmd/main.go
+source example.env
+go run cmd/gostaticwebserver/main.go

@@ -1,4 +1,0 @@
-export HOST=localhost
-export PORT=1234
-export APIKEY=something
-export WEBDIR=/tmp/web/
