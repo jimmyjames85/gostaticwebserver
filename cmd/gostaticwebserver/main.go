@@ -81,8 +81,10 @@ func handleParseParameters(w http.ResponseWriter, r *http.Request) {
 
 	bw := bufio.NewWriter(w)
 	for name, vals := range r.Form {
+		log.Printf("%s\n", name)
 		bw.WriteString(fmt.Sprintf("%s\n", name))
 		for _, val := range vals {
+			log.Printf("%s\n", val)
 			bw.WriteString(fmt.Sprintf("\t%s\n", val))
 		}
 		bw.WriteString("\n")
