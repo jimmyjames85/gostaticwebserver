@@ -1,8 +1,9 @@
 {
-    "basedir": "/home/jim/tmp",
+    "basedir": "/www",
     "routes": {
 	"": "{{.basedir}}",
 	"dir1": "{{.basedir}}/dir1",
-	"dir2": "{{.basedir}}/dir2"
+	"dir2": "{{.basedir}}/dir2",
+	"dir2.subdir": "{{.basedir}}/dir2/subdir"
     }
 }
