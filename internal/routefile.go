@@ -17,7 +17,7 @@ type RouteFile struct {
 	Routes  map[string]string `json:"routes"`
 }
 
-func (r *RouteFile) Fileloc() string { return fileloc }
+func (r *RouteFile) Fileloc() string { return r.fileloc }
 
 func parseRouteFile(fileloc string) (*RouteFile, error) {
 	f, err := os.OpenFile(fileloc, os.O_RDONLY, 0666)
