@@ -76,7 +76,7 @@ func (s *Server) routeRequest(r *http.Request) (http.Handler, error) {
 
 	handler, ok := s.routes[dnsPrefix]
 	if !ok {
-		return nil, fmt.Errorf("no fileserver found for %s", dnsPrefix)
+		return nil, fmt.Errorf("no route found for %s", dnsPrefix)
 	}
 
 	return handler, nil
