@@ -24,7 +24,7 @@ func (l *log) Event(m map[string]interface{}) {
 }
 
 func (*log) Printf(format string, a ...interface{}) {
-	fmt.Printf("[%s] ", time.Now().UTC().Format(time.RFC822))
+	// fmt.Printf("[%s] ", time.Now().UTC().Format(time.RFC822))
 	fmt.Printf(format, a...)
 	fmt.Printf("\n")
 }
