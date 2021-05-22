@@ -4,87 +4,102 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/kelseyhightower/envconfig"
+	"golang.org/x/net/publicsuffix"
 )
 
 type Config struct {
 	Port   int    `envconfig:"PORT" required:"false" default:"8080"`
-	WebDir string `envconfig:"WEBDIR" required:"true"`
-}
-
-// LoadConfig loads environment variables
-func LoadConfig() (Config, error) {
-	cfg := Config{}
-	err := envconfig.Process("", &cfg)
-	return cfg, err
+	WebDir string `envconfig:"WEBDIR" required:"false"` // TODO remove
 }
 
 func main() {
-	cfg, err := LoadConfig()
-	if err != nil {
-		log.Fatalf("unable to load config: %s\n", err.Error())
-	}
+	cfg := Config{}
+	envconfig.MustProcess("", &cfg)
 
-	err = http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), http.FileServer(http.Dir(cfg.WebDir)))
+	http.HandleFunc("/", rootHandler)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), nil)
 	if err != nil {
 		log.Fatalf("unable to serve: %v\n", err)
 	}
 }
 
-func newMain() {
-	// cfg, err := LoadConfig()
-	// if err != nil {
-	// 	log.Fatalf("unable to load config: %s\n", err.Error())
-	// }
-
-	http.HandleFunc("/", rootHandler)
-
-	fs := http.FileServer(http.Dir("/tmp"))
-	fs = nil
-	err := http.ListenAndServe(fmt.Sprintf(":%d", 8080), fs)
-	if err != nil {
-		log.Fatalf("unable to serve: %v\n", err)
-	}
+func notFoundHandler(w http.ResponseWriter, r *http.Request) {
+	// TODO serve custom 404 and LOG ip addr
+	w.WriteHeader(http.StatusNotFound)
+	fmt.Fprintf(w, "404 yo\n")
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s", requestInfo(r))
-
-	rewrite, err := rewrite(r)
+	handler, err := lookupRouteHandler(r)
 	if err != nil {
-		fmt.Fprintf(w, "rewrite err: %s\n", err.Error())
+		notFoundHandler(w, r)
 		return
 	}
-	fmt.Fprintf(w, "rewrite: %s\n", rewrite)
-
+	handler.ServeHTTP(w, r)
 }
 
-func rewrite(r *http.Request) (string, error) {
+func infoHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%s", requestInfo(r))
+}
 
-	u, err := requestURL(r)
+var basedir = "/tmp"
+
+// dnsPrefix -> http.HandlerFunc
+//
+// if request is for mail.foo.com then dnsPrefix is mail
+//
+var routeHandlers = map[string]http.HandlerFunc{
+	"":     http.FileServer(http.Dir(basedir)).ServeHTTP,
+	"dir1": http.FileServer(http.Dir(basedir + "/dir1")).ServeHTTP,
+	"dir2": http.FileServer(http.Dir(basedir + "/dir2")).ServeHTTP,
+	"info": infoHandler,
+	// "mail": http.RedirectHandler("http://gmail.com", http.StatusTemporaryRedirect).ServeHTTP,
+}
+
+func parseDNSPrefix(u *url.URL) (string, error) {
+	hostname := strings.ToLower(u.Hostname())
+
+	if net.ParseIP(hostname) != nil {
+		// hostname is an ip address
+		return "", fmt.Errorf("no prefix for IP address")
+	}
+
+	tldPlusOne, err := publicsuffix.EffectiveTLDPlusOne(hostname)
 	if err != nil {
-		return "", err
+		return "", err // probably localhost
 	}
-	path := strings.Split(u.Host, ".")
-	if len(path) <= 1 {
-		return u.String(), nil
-	}
-	newpath := path[:len(path)-1] // TODO what if instead of localhost its jimmyjames.tld ... need len -2
-	newhost := path[len(path)-1:] // TODO what if instead of localhost its jimmyjames.tld ... need len -2
 
-	return fmt.Sprintf("%s://%s%s%s", u.Scheme, strings.Join(newhost, "."), u.Path, strings.Join(newpath, "/")), nil
-
-	// better yet for FOO.jimmyjames.tld
-	// 1. check if FOO dir exists
-	// 2. yes? serve static fileserver location at that dir
-	// 3. no? serve 404
+	prefix := strings.TrimSuffix(hostname, tldPlusOne)
+	prefix = strings.TrimSuffix(prefix, ".")
+	return prefix, nil
 }
 
-func requestURL(r *http.Request) (*url.URL, error) {
+func lookupRouteHandler(r *http.Request) (http.Handler, error) {
+	u, err := parseRequestURL(r)
+	if err != nil {
+		return nil, err
+	}
+
+	dnsPrefix, err := parseDNSPrefix(u)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, ok := routeHandlers[dnsPrefix]
+	if !ok {
+		return nil, fmt.Errorf("no fileserver found for %s", dnsPrefix)
+	}
+
+	return handler, nil
+}
+
+func parseRequestURL(r *http.Request) (*url.URL, error) {
 	scheme := "http://"
 	if r.TLS != nil {
 		scheme = "https://"
