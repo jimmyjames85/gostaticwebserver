@@ -11,7 +11,7 @@ Export environment variables
 
 ``` json
 {
-    "basedir": "/home/jim/tmp",
+    "basedir": "/www",
     "routes": {
 	    "": "{{.basedir}}",
 	    "dir1": "{{.basedir}}/dir1",
@@ -19,6 +19,8 @@ Export environment variables
     }
 }
 ```
- - `""` empty route is base route
- - `dir1`  will route dir1.domain.com to basedir/dir1
- - `dir2`  will route dir1.domain.com to basedir/dir2
+ - `""` routes root `/` level requests `domain.com/file1`->`/www/file1`
+ - all other routes are considered domain prefixes e.g.
+   - `dir1.domain.com` -> `/www/dir1`
+   - `dir2.domain.com` -> `/www/dir2`
+   - `dir2.domain.com/foo` -> `/www/dir2/foo`
