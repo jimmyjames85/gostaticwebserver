@@ -1,0 +1,14 @@
+[Unit]
+Description=A static webserver
+After=network.target
+
+[Service]
+ExecStart=/home/webserver/webserver/run.sh
+WorkingDirectory=/home/webserver/webserver
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=webserver
+
+[Install]
+WantedBy=multi-user.target
