@@ -17,6 +17,11 @@ type RouteFile struct {
 	Routes  map[string]string `json:"routes"`
 }
 
+func (r *RouteFile) String() string {
+	b, _ := json.Marshal(r)
+	return string(b)
+
+}
 func (r *RouteFile) Fileloc() string { return r.fileloc }
 
 func parseRouteFile(fileloc string) (*RouteFile, error) {
