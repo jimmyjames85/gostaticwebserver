@@ -10,6 +10,8 @@ import (
 
 type Config struct {
 	Port      int    `envconfig:"PORT" required:"false" default:"8080"`
+	SSLPort   int    `envconfig:"SSL_PORT" required:"false" default:"0"`
+	CertDir   string `envconfig:"CERT_DIR" required:"false" default:""`
 	RouteFile string `envconfig:"ROUTE_FILE" required:"true"`
 }
 
@@ -17,12 +19,14 @@ func main() {
 	cfg := Config{}
 	envconfig.MustProcess("", &cfg)
 
-	s, err := internal.NewServer(cfg.Port, cfg.RouteFile)
-	if err != nil {
-		exitf(-1, "%s\n", err.Error())
+	s := &internal.Server{
+		RouteFileloc: cfg.RouteFile,
+		Port:         cfg.Port,
+		SSLPort:      cfg.SSLPort,
+		CertDir:      cfg.CertDir,
 	}
 
-	err = s.Serve()
+	err := s.Serve()
 	if err != nil {
 		exitf(-1, "%s\n", err.Error())
 	}

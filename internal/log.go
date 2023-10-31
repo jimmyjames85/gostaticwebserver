@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -44,25 +45,25 @@ func requestInfo(r *http.Request) map[string]interface{} {
 	}
 }
 
-// func urlInfo(u *url.URL) string {
-// 	w := &bytes.Buffer{}
-// 	fmt.Fprintf(w, "URL.EscapedFragment: %s\n", u.EscapedFragment())
-// 	fmt.Fprintf(w, "URL.EscapedPath: %s\n", u.EscapedPath())
-// 	fmt.Fprintf(w, "URL.ForceQuery: %t\n", u.ForceQuery)
-// 	fmt.Fprintf(w, "URL.Fragment: %s\n", u.Fragment)
-// 	fmt.Fprintf(w, "URL.Host: %s\n", u.Host)
-// 	fmt.Fprintf(w, "URL.Hostname: %s\n", u.Hostname())
-// 	fmt.Fprintf(w, "URL.IsAbs: %t\n", u.IsAbs())
-// 	fmt.Fprintf(w, "URL.Opaque: %s\n", u.Opaque)
-// 	fmt.Fprintf(w, "URL.Path: %s\n", u.Path)
-// 	fmt.Fprintf(w, "URL.Port: %s\n", u.Port())
-// 	fmt.Fprintf(w, "URL.Query.Encode: %s\n", u.Query().Encode())
-// 	fmt.Fprintf(w, "URL.RawFragment: %s\n", u.RawFragment)
-// 	fmt.Fprintf(w, "URL.RawPath: %s\n", u.RawPath)
-// 	fmt.Fprintf(w, "URL.RawQuery: %s\n", u.RawQuery)
-// 	fmt.Fprintf(w, "URL.Redacted: %s\n", u.Redacted())
-// 	fmt.Fprintf(w, "URL.RemoteAddr: %s\n", u.RequestURI())
-// 	fmt.Fprintf(w, "URL.Scheme: %s\n", u.Scheme)
-// 	fmt.Fprintf(w, "URL.String: %s\n", u.String())
-// 	return w.String()
-// }
+func urlInfo(u *url.URL) map[string]interface{} {
+	return map[string]interface{}{
+		"EscapedFragment": u.EscapedFragment(),
+		"EscapedPath":     u.EscapedPath(),
+		"ForceQuery":      u.ForceQuery,
+		"Fragment":        u.Fragment,
+		"Host":            u.Host,
+		"Hostname":        u.Hostname(),
+		"IsAbs":           u.IsAbs(),
+		"Opaque":          u.Opaque,
+		"Path":            u.Path,
+		"Port":            u.Port(),
+		"Query.Encode":    u.Query().Encode(),
+		"RawFragment":     u.RawFragment,
+		"RawPath":         u.RawPath,
+		"RawQuery":        u.RawQuery,
+		"Redacted":        u.Redacted(),
+		"RemoteAddr":      u.RequestURI(),
+		"Scheme":          u.Scheme,
+		"String":          u.String(),
+	}
+}

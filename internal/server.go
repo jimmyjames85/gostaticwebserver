@@ -1,12 +1,14 @@
 package internal
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -16,10 +18,13 @@ type logger interface {
 }
 
 type Server struct {
-	routeFile *RouteFile
-	port      int
+	log
 
-	log logger
+	RouteFileloc string
+	Port         int
+	SSLPort      int    // if 0 no ssl is served
+	CertDir      string // location to store ssl cert cache, if empty no ssl is served
+
 	// dnsPrefix -> http.HandlerFunc
 	//
 	// if request is for mail.foo.com then dnsPrefix is mail
@@ -27,42 +32,79 @@ type Server struct {
 	routes map[string]http.HandlerFunc
 }
 
-func NewServer(port int, routeFile string) (*Server, error) {
-	cfg, err := parseRouteFile(routeFile)
-	if err != nil {
-		return nil, err
-	}
-
-	w := &Server{
-		port:      port,
-		routes:    map[string]http.HandlerFunc{},
-		routeFile: cfg,
-		log:       &log{},
-	}
-
-	// TODO move this onto routeFile struct as a func when we implement hot reload option
-	for dnsPrefix, fileloc := range w.routeFile.Routes {
-		w.routes[dnsPrefix] = http.FileServer(http.Dir(fileloc)).ServeHTTP
-	}
-
-	return w, nil
-
-}
-
-// func infoHandler(w http.ResponseWriter, r *http.Request) {
-// 	fmt.Fprintf(w, "%s", requestInfo(r))
+// func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
+// 	m := requestInfo(r)
+// 	b, _ := json.MarshalIndent(m, "", " ")
+// 	fmt.Fprintf(w, "%s\n", string(b))
+// }
+//
+// func urlInfoHandler(w http.ResponseWriter, r *http.Request) {
+// 	m := urlInfo(r.URL)
+// 	b, _ := json.MarshalIndent(m, "", " ")
+// 	fmt.Fprintf(w, "%s\n", string(b))
 // }
 
+func (s *Server) initRoutes() error {
+	routeFile, err := parseRouteFile(s.RouteFileloc)
+	if err != nil {
+		return err
+	}
+	s.routes = map[string]http.HandlerFunc{}
+	// TODO move this onto routeFile struct as a func when we implement hot reload option
+	for dnsPrefix, fileloc := range routeFile.Routes {
+		s.routes[dnsPrefix] = http.FileServer(http.Dir(fileloc)).ServeHTTP
+	}
+	s.log.Printf("using routes: %s", routeFile.String())
+	return nil
+}
+
 func (s *Server) Serve() error {
-	// TODO middle ware here
+	err := s.initRoutes()
+	if err != nil {
+		return err
+	}
 
-	// http.HandleFunc("/info", infoHandler)
-	http.HandleFunc("/", s.rootHandler)
+	addr := fmt.Sprintf(":%d", s.Port)
+	mux := http.NewServeMux() // TODO add middleware here
+	// http.HandleFunc("/request/info", requestInfoHandler)
+	// http.HandleFunc("/url/info", urlInfoHandler)
+	mux.HandleFunc("/", s.rootHandler)
 
-	s.log.Printf("webserver start on port: %d", s.port)
-	s.log.Printf("%s", s.routeFile.String())
+	s.log.Printf("webserver started on port: %d", s.Port)
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", s.port), nil)
+	if len(s.CertDir) == 0 || s.SSLPort == 0 { // no SSL
+		return http.ListenAndServe(addr, mux)
+	}
+
+	s.log.Printf("SSL webserver started on port: %d", s.SSLPort)
+	certManager := autocert.Manager{
+		Prompt: autocert.AcceptTOS,
+		Cache:  autocert.DirCache(s.CertDir),
+	}
+
+	tlsAddr := fmt.Sprintf(":%d", s.SSLPort)
+	server := &http.Server{
+		Addr:    tlsAddr,
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				ret, err := certManager.GetCertificate(hello)
+				if err != nil {
+					s.log.Event(map[string]interface{}{
+						"error":      err.Error(),
+						"line":       "getCertCall(hello)",
+						"serverName": hello.ServerName,
+					})
+					return nil, err
+				}
+
+				return ret, nil
+			},
+		},
+	}
+
+	go http.ListenAndServe(addr, certManager.HTTPHandler(nil))
+	return server.ListenAndServeTLS("", "")
 	// TODO close everything
 }
 
@@ -89,8 +131,17 @@ func (s *Server) routeRequest(r *http.Request) (http.Handler, error) {
 		return nil, err
 	}
 
+	// routes foo.website.com to website.com/foo
 	dnsPrefix, err := parseDNSPrefix(u)
 	if err != nil {
+		// uncomment useful for local development
+		// dnsPrefix = "" // this causes it to route to root handler: useful for localhost
+
+		// don't serve
+		s.log.Event(map[string]interface{}{
+			"event":   "error",
+			"message": fmt.Sprintf("parseDNSPrefix: %s: routing to root handler", err.Error()),
+		})
 		return nil, err
 	}
 
@@ -102,6 +153,7 @@ func (s *Server) routeRequest(r *http.Request) (http.Handler, error) {
 	return handler, nil
 }
 
+// returns an error if url is an ip address or simply localhost
 func parseDNSPrefix(u *url.URL) (string, error) {
 	hostname := strings.ToLower(u.Hostname())
 
