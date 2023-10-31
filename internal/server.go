@@ -88,6 +88,15 @@ func (s *Server) Serve() error {
 		Handler: mux,
 		TLSConfig: &tls.Config{
 			GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				// refuse requests for which we don't have routes for
+				dnsPrefix, err := parseDNSPrefix(&url.URL{Host: hello.ServerName})
+				if err != nil {
+					return nil, err
+				}
+				if _, ok := s.routes[dnsPrefix]; !ok {
+					return nil, fmt.Errorf("invalid domain: %s", hello.ServerName)
+				}
+
 				ret, err := certManager.GetCertificate(hello)
 				if err != nil {
 					s.log.Event(map[string]interface{}{
