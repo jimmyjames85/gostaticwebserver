@@ -2,6 +2,7 @@ package internal
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -32,17 +33,23 @@ type Server struct {
 	routes map[string]http.HandlerFunc
 }
 
-// func requestInfoHandler(w http.ResponseWriter, r *http.Request) {
-// 	m := requestInfo(r)
-// 	b, _ := json.MarshalIndent(m, "", " ")
-// 	fmt.Fprintf(w, "%s\n", string(b))
-// }
-//
-// func urlInfoHandler(w http.ResponseWriter, r *http.Request) {
-// 	m := urlInfo(r.URL)
-// 	b, _ := json.MarshalIndent(m, "", " ")
-// 	fmt.Fprintf(w, "%s\n", string(b))
-// }
+func (s *Server) requestInfoHandler(w http.ResponseWriter, r *http.Request) {
+	m := requestInfo(r)
+	b, _ := json.MarshalIndent(m, "", " ")
+	fmt.Fprintf(w, "%s\n", string(b))
+	s.Event(map[string]interface{}{
+		"request_info": m,
+	})
+}
+
+func (s *Server) urlInfoHandler(w http.ResponseWriter, r *http.Request) {
+	m := urlInfo(r.URL)
+	b, _ := json.MarshalIndent(m, "", " ")
+	fmt.Fprintf(w, "%s\n", string(b))
+	s.Event(map[string]interface{}{
+		"url_info": m,
+	})
+}
 
 func (s *Server) initRoutes() error {
 	routeFile, err := parseRouteFile(s.RouteFileloc)
@@ -66,8 +73,8 @@ func (s *Server) Serve() error {
 
 	addr := fmt.Sprintf(":%d", s.Port)
 	mux := http.NewServeMux() // TODO add middleware here
-	// http.HandleFunc("/request/info", requestInfoHandler)
-	// http.HandleFunc("/url/info", urlInfoHandler)
+	mux.HandleFunc("/request/info", s.requestInfoHandler)
+	mux.HandleFunc("/url/info", s.urlInfoHandler)
 	mux.HandleFunc("/", s.rootHandler)
 
 	s.log.Printf("webserver started on port: %d", s.Port)

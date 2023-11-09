@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -21,7 +22,7 @@ func (l *log) Event(m map[string]interface{}) {
 		l.Printf("failed to log: %#v", m)
 		return
 	}
-	l.Printf(string(b))
+	l.Printf("%s\n", string(b))
 }
 
 func (*log) Printf(format string, a ...interface{}) {
@@ -31,6 +32,12 @@ func (*log) Printf(format string, a ...interface{}) {
 }
 
 func requestInfo(r *http.Request) map[string]interface{} {
+	b, err := ioutil.ReadAll(r.Body)
+	body := string(b)
+	if err != nil {
+		body = fmt.Sprintf("body read err: %s\n%s", err.Error(), body)
+	}
+
 	return map[string]interface{}{
 		"content_length":    r.ContentLength,
 		"form.encode":       r.Form.Encode(),
@@ -42,6 +49,7 @@ func requestInfo(r *http.Request) map[string]interface{} {
 		"request_uri":       r.RequestURI,
 		"transfer_encoding": r.TransferEncoding,
 		"user_agent":        r.UserAgent(),
+		"body":              body,
 	}
 }
 
