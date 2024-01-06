@@ -1,0 +1,19 @@
+version: "2.2"
+
+services:
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: "./webserver"
+    volumes:
+      - ./config:/webserver/config
+      - ./www:/www
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - ROUTE_FILE=routes.json
+      - PORT=80
+      # - SSL_PORT=443       # uncommenting enables ssl
+      # - CERT_DIR="/certs"  # uncommenting enables ssl
